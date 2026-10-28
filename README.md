@@ -11,11 +11,11 @@ when they are available.
 
 | Skill | Say | What it does |
 |---|---|---|
-| `full-stop` | "full stop" | Finishes an iota-spear change with nobody watching: proves it, reviews it, runs preflight, and stops before any push or PR with a video, screenshots, and a drafted PR for you to approve. |
+| `full-stop` | "full stop" | Finishes an iota-spear change with nobody watching: proves it, reviews it, rebases it onto the latest `main` with every commit green, and stops before any push or PR with a video, screenshots, and a drafted PR for you to approve. |
 | `sol-loop` | "sol loop" | Reviews a change with GPT Sol in a loop until both agents agree. |
-| `modernize` | "modernize" | Brings an old iota-spear PR current with `land:rebase` and `regen`, and decides if it should still exist. |
+| `modernize` | "modernize" | Brings an iota-spear PR or branch onto the latest `main` with `land:rebase` and `regen`, checks every commit is green, and decides if it should still exist. |
 
-`full-stop` uses `sol-loop`. Install both.
+`full-stop` uses `sol-loop` and `modernize`. Install all three.
 
 ## Install
 

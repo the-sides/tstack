@@ -1,8 +1,9 @@
 ---
 name: modernize
 description: >-
-  For getting old iota-spear PRs up to date. Use when asked to rebase a PR or
-  "modernize".
+  For getting old iota-spear PRs and branches up to date with the latest
+  main, with every commit green. Use when asked to rebase a PR or branch, or
+  "modernize". full-stop uses it to finish on the latest main.
 ---
 
 # Modernize
@@ -44,6 +45,10 @@ The rules this skill follows live in the repo's `AGENTS.md` and
 - Never apply the `cleared` or `held` labels.
 
 ## Establish the PR's intent
+
+For a local branch with no PR yet (for example one `full-stop` is building),
+use the branch's commits and the task's goal in place of the PR's history,
+and skip the GitHub fields.
 
 Resolve the PR and record its URL, state, base, head branch, current head SHA,
 author, `status:` label, checks, and review state. Read the head's red CI jobs:
@@ -101,8 +106,10 @@ not a reason to keep a PR alive.
 For a `MODERNIZE` disposition:
 
 1. Run `pnpm land:board -- <n>`. A move of `main` alone is not a reason to
-   rebase. If its `merge` column is clean and the user did not ask for a
-   rebase, skip to step 5: the branch needs checks, not a new base.
+   rebase. If its `merge` column is clean and nobody asked for a rebase, skip
+   to step 5: the branch needs checks, not a new base. A rebase request from
+   the user, or a call from `full-stop`, always rebases onto the latest
+   `origin/main`. A branch with no PR skips `land:board`.
 2. In a worktree on the PR's branch, run `pnpm land:rebase` (or
    `pnpm land:rebase -- <base>` for a stacked PR). It rebuilds the generated
    ledger at each commit. It stops on real conflicts as usual.
@@ -115,11 +122,27 @@ For a `MODERNIZE` disposition:
    regen commit. Compare the pre-rebase and post-rebase series with
    `git range-diff` and inspect the final diff. Confirm no intended behavior
    disappeared and no already-landed behavior came back.
-5. Run `pnpm preflight` once and fix every red. If the PR touches the published
+5. **Make every commit green.** Run `scripts/check-commit` from this skill's
+   directory (use its absolute path) on each commit of the branch:
+
+   ```bash
+   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" origin/main
+   ```
+
+   It typechecks and runs the unit tests for each area the commit touches
+   (root, `apps/web`, `apps/qa`). When a commit fails, the rebase stops on it.
+   Fix it in that commit, `git commit --amend`, and `git rebase --continue`.
+   Never fix a red commit with a later commit. Use `<base>` in place of
+   `origin/main` for a stacked branch. Record each commit's result.
+6. Run `pnpm preflight` once and fix every red. If the PR touches the published
    package, also run `pnpm build && pnpm build:smoke`. Tell real failures apart
    from runner or infrastructure flakes, and from reds already on `main`.
-6. Push with `--force-with-lease` tied to the previously observed remote head.
-   If the lease fails, fetch and reassess rather than overwriting new work.
+   Preflight runs on the tip only. It covers the database suites and the
+   GitHub-style merge that step 5 does not.
+7. Push with `--force-with-lease` tied to the previously observed remote head,
+   only when the branch already has a PR. If the lease fails, fetch and
+   reassess rather than overwriting new work. A branch `full-stop` is building
+   is never pushed.
 
 Do not merge the PR.
 
@@ -130,7 +153,9 @@ Lead with `MODERNIZE`, `REWORK`, or `CLOSE` and the reason. Then summarize:
 - meaningful changes on `main`;
 - conceptual conflicts or confirmation that none were found;
 - the rebase and push result, if performed, and the new head SHA;
-- checks run and their results, and what they do not prove;
+- the `origin/main` SHA the branch now sits on;
+- each commit's check result, the preflight result, and what they do not
+  prove;
 - the remaining decision or work, with a link to the PR.
 
 Separate observed facts from judgment. Say what could not be verified instead

@@ -24,7 +24,8 @@ If they changed since this skill was written, they win.
 The user gives you permission to:
 
 - Commit to this task's `work/*` branch in its own worktree.
-- Rebase that branch when it has a real conflict.
+- Rebase that branch onto the latest `origin/main` as often as this skill
+  says.
 - Run the app, its dev servers, and a browser, and use the test methods that
   Proof needs, without asking first.
 
@@ -67,15 +68,17 @@ line), or anything under "Asking the user".
 3. **Prove it works.** See "Proof".
 4. **Get feedback.** Use the `sol-loop` skill to review the change. Do not let
    it push.
-5. **Preflight.** Rebase only for a real conflict (see "Rebasing"). Then run
-   `pnpm preflight` once and fix every red. If the change touches the
-   published package, also run `pnpm build && pnpm build:smoke`.
+5. **Bring it current.** Use the `modernize` skill on this branch. It rebases
+   onto the latest `origin/main`, runs `pnpm regen`, makes every commit green
+   with its `check-commit` script, and runs `pnpm preflight` on the tip. See
+   "Latest main, green commits".
 6. **Show it.** Record the video and screenshots on the final commit. See
    "Show it".
-7. **Draft the PR, but do not open it.** See "PR draft".
-8. **Hand off** with the report in "Handoff".
+7. **Check main one last time.** See "Latest main, green commits".
+8. **Draft the PR, but do not open it.** See "PR draft".
+9. **Hand off** with the report in "Handoff".
 
-Stay active from step 1 to step 8. If you end your turn early, the work stops,
+Stay active from step 1 to step 9. If you end your turn early, the work stops,
 because nobody will prompt you again.
 
 ## Proof
@@ -96,21 +99,46 @@ reproduction, a screenshot. Use the most direct proof the change allows:
 Say what each check does not prove. When you cannot find a way to prove a
 change, ask the user.
 
-## Rebasing
+## Latest main, green commits
 
-A move of `main` alone is not a reason to rebase. Rebase only when GitHub's
-merge would conflict. Preflight's `github-merge` step merges the way GitHub
-does and tells you.
+The finished branch must sit on the newest `origin/main` you can find by the
+end of the run, and every commit on it must pass its tests, not just the tip.
 
-To rebase, run `pnpm land:rebase` (`pnpm land:rebase -- <base>` for a stacked
-lane), then `pnpm regen`, and amend each regenerated file into the commit that
-owns it. Never leave a red commit for a later regen commit.
+This branch is not pushed, so rebasing it costs no CI run. The repo's "rebase
+only for a real conflict" rule is about pushed pull requests, and does not
+apply here.
+
+**Step 5.** Run `modernize` on the branch. It records its disposition, then:
+
+- rebases with `pnpm land:rebase`, then `pnpm regen`, amending each
+  regenerated file into the commit that owns it;
+- runs its `scripts/check-commit` on every commit with
+  `git rebase --reschedule-failed-exec --exec`. A red commit is fixed in that
+  commit, never by a later one;
+- runs `pnpm preflight` on the tip, plus `pnpm build && pnpm build:smoke` if
+  the change touches the published package.
+
+If `modernize` says `REWORK` or `CLOSE` (for example, `main` already solved the
+problem), stop and ask the user instead of recording.
+
+**Step 7.** After recording, `git fetch origin` again. If `origin/main` is
+still an ancestor of `HEAD`, you are done. If it moved:
+
+1. Run step 5 again.
+2. Retake the recordings when the new `main` commits touch `apps/`, or any
+   file the change touches. Otherwise keep them, and say in the handoff which
+   base they were recorded on.
+3. Check again.
+
+Stop after two extra rounds. If `main` is still moving, hand off on the last
+base you finished, and say how many commits behind it is.
 
 ## Show it
 
 The user will decide from what you record whether the change looks right, so
 record what they would have clicked through themselves. Record on the final
-commit, after preflight. A recording of an earlier commit does not count.
+commit, after step 5. A recording of an earlier commit does not count, except
+as step 7 allows.
 
 **Where it goes.** Save everything under the worktree's
 `.local/full-stop/<topic>/` (gitignored). Name files so they sort in viewing
@@ -197,11 +225,14 @@ shows and what to look for. Link each video and file by absolute path.
 
 Then report:
 
-- The worktree path, branch, and final commit SHA. State that nothing was
-  pushed and no PR exists.
+- The worktree path, branch, final commit SHA, and the `origin/main` SHA it
+  sits on, with the time you last fetched. State that nothing was pushed and
+  no PR exists.
+- Each commit with its `check-commit` result, and the preflight result on the
+  tip.
 - A try-it recipe: the launch lane, the URL, and the clicks that reach the
   change, so the user can see it live.
-- Proof: the checks you ran, their results, and what they do not prove.
+- Proof: the other checks you ran, their results, and what they do not prove.
 - The Sol review outcome.
 - Each decision you made for the user, follow-ups, and remaining risks.
 - The path to `pr.md`.
