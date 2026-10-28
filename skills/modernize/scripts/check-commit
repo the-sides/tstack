@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Typecheck and unit-test one iota-spear commit, for the areas it touches.
+#
+# Run it on every commit of a branch with:
+#   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" "$(git merge-base HEAD origin/main)"
+# A red commit stops the rebase on that commit: fix it there, `git commit --amend`,
+# then `git rebase --continue`, which runs this again.
+#
+# Areas, from the commit's own diff:
+#   anything outside apps/  root `pnpm typecheck` + `pnpm test:unit`
+#   apps/web/               `pnpm -C apps/web typecheck` + `test:unit-dom`
+#   apps/qa/                `pnpm -C apps/qa typecheck` + `test`
+# It runs no database suite and no build. `pnpm preflight` on the tip covers those.
+set -euo pipefail
+
+# Nested git inside `git rebase --exec` must find this worktree (AGENTS.md, "Rebase checks").
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
+sha=$(git rev-parse --short HEAD)
+changed=$(git diff --name-only HEAD^ HEAD)
+if [ -z "$changed" ]; then
+  echo "check-commit $sha: no changed files"
+  exit 0
+fi
+
+if grep -qE '(^|/)pnpm-lock\.yaml$|(^|/)package\.json$' <<<"$changed"; then
+  pnpm install --frozen-lockfile
+fi
+
+ran=()
+if grep -qvE '^apps/' <<<"$changed"; then
+  pnpm typecheck
+  pnpm test:unit
+  ran+=(root)
+fi
+if grep -qE '^apps/web/' <<<"$changed"; then
+  pnpm -C apps/web typecheck
+  pnpm -C apps/web test:unit-dom
+  ran+=(apps/web)
+fi
+if grep -qE '^apps/qa/' <<<"$changed"; then
+  pnpm -C apps/qa typecheck
+  pnpm -C apps/qa test
+  ran+=(apps/qa)
+fi
+
+echo "check-commit $sha: green (${ran[*]:-nothing to run})"

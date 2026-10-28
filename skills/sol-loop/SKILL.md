@@ -1,11 +1,11 @@
 ---
 name: sol-loop
-description: Use when the user says "sol loop".
+description: Use when the user says "sol loop". Reviews an iota-spear change with GPT Sol in a loop.
 ---
 
 # sol-loop
 
-This is a workflow for making your code changes more correct before (or
+This is a workflow for making iota-spear code changes more correct before (or
 sometimes after) filing a pull request. tl;dr - use OpenAI's GPT Sol to review
 your code in a loop.
 
@@ -26,7 +26,7 @@ of scope creep and don't be scared to push back.
 
 ## 1. Scope
 
-Run `git status --short`. Do not stash, discard, or include unrelated
+Work in the lane's worktree, never the root checkout. Run `git status --short`. Do not stash, discard, or include unrelated
 changes. Limit review to the change paths if they separate cleanly.
 Otherwise stop and ask.
 
@@ -35,12 +35,19 @@ Find the base after `git fetch origin`:
 - PR: `gh pr view <n> --json baseRefName,headRefOid`. Check out the branch
   only if clean. Confirm `HEAD` is the PR head, or ahead only by this
   change. Base: `git merge-base HEAD origin/<baseRefName>`.
-- Local: `git merge-base HEAD origin/<default-branch>`. No remote: a base
-  the user names, or `HEAD` for uncommitted changes only.
+- Local: `git merge-base HEAD origin/main`. For uncommitted changes only:
+  `HEAD`.
+
+Do not merge `main` into the branch or rebase it during the loop; review
+against that merge-base. Bringing a branch current is `modernize`'s job, and
+it rebases, never merges.
 
 The change is base to working tree in those paths, with untracked files.
 Use one diff command all rounds. State intent and out-of-scope in 1-2
-sentences. Run covering checks. Do not send code this change breaks. Note
+sentences. Run covering checks: the narrow ones for what changed (`pnpm test <file>`,
+`pnpm typecheck`, `pnpm -C apps/web gate` for apps/web). If a verification
+command is queued, leave it running and read `pnpm verify:status`; never
+start a duplicate. Do not send code this change breaks. Note
 missing or pre-failing checks in the brief.
 
 ## 2. Start Sol
@@ -67,7 +74,13 @@ Round 1 brief (T3 children get no history):
 Review only. Do not edit, commit, push, comment on PRs, or start subagents.
 Repo: <abs path> Base: <sha> Intent: <intent> Out of scope: <scope> Checks: <results>
 See: git diff <base> [-- <paths>]; git status --short (read untracked).
-Read surrounding code. Find bugs, broken callers, mismatch with intent.
+Read surrounding code and AGENTS.md. Find bugs, broken callers, mismatch with
+intent, and breaks of the repo's rules: kernel (src/) importing upward or
+holding product code, ambient reads (Date.now, Math.random, process.env)
+outside boundary adapters, a mutating chassis API without an IdempotencyKey,
+a src/ or scripts/ file without __loadBearingProof, a commit mixing chassis
+and product without a cross-bucket trailer, generated artifacts not
+regenerated in the same commit.
 Skip style unless it hides a bug. Hold to the smallest change. Flag code,
 tests, or guards the intent does not need. Other paths, rare cases, small
 perf, extra compat: nits.
