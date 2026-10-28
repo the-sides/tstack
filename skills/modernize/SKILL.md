@@ -18,10 +18,14 @@ The rules this skill follows live in the repo's `AGENTS.md` and
 
 - `git fetch origin` before anything, then read `git log -1 origin/main`. Bare
   `main` only moves on fetch, so it can look current while stale.
-- Work in a worktree, never in the root checkout, and never in a worktree
-  another session uses. Treat existing worktree changes as someone else's.
-  `pnpm land:board -- <n>` shows in its `held` column whether a worktree already
-  has the PR's branch checked out.
+- Confirm you're in a worktree. The branch is the user's own and already has
+  one. Check that the current directory is a linked worktree, not the root
+  checkout: `git rev-parse --git-dir` and `git rev-parse --git-common-dir`
+  differ in a linked worktree. Work there, on its branch. Do not create
+  another worktree. If you are in the root checkout, ask the user which
+  worktree to use.
+- Never stash or discard uncommitted changes in it. If there are any, ask the
+  user before rebasing. (`full-stop` commits its work before it calls you.)
 - You act on GitHub as the `iota-spear-agent[bot]` App. In Codex or another
   shell, run `eval "$(bash .claude/hooks/agent-identity.sh env)"` first.
 - Modernizing authorizes rebasing and updating the PR's `work/*` branch. It does
@@ -110,7 +114,7 @@ For a `MODERNIZE` disposition:
    to step 5: the branch needs checks, not a new base. A rebase request from
    the user, or a call from `full-stop`, always rebases onto the latest
    `origin/main`. A branch with no PR skips `land:board`.
-2. In a worktree on the PR's branch, run `pnpm land:rebase` (or
+2. In that worktree, run `pnpm land:rebase` (or
    `pnpm land:rebase -- <base>` for a stacked PR). It rebuilds the generated
    ledger at each commit. It stops on real conflicts as usual.
 3. Resolve each conflict by the PR's current intent and `main`'s newer
