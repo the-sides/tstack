@@ -16,6 +16,9 @@ PR still belongs in the product.
   branch, and any other branch related to your work before starting.
 - Treat existing worktree changes as user-owned. Use a disposable worktree when
   the active worktree is dirty or is being used for other work.
+- Read the repo's agent docs (`AGENTS.md`, `CLAUDE.md`, and the docs they
+  point to) first. When they give their own rebase, regeneration, check, or
+  push procedure, follow theirs in place of the matching step here.
 - Modernizing authorizes rebasing and updating the PR branch. It does not
   authorize merging, closing, changing the base branch, or expanding scope.
 - Never use an unqualified force push. Update a rebased branch with

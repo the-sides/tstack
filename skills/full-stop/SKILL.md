@@ -19,6 +19,14 @@ The user gives you permission to:
 - Force-push this task's branch with `--force-with-lease` after a rebase.
 - Use the test methods that Proof needs, without asking first.
 
+## Repo rules come first
+
+Before you start, read the repo's agent docs (`AGENTS.md`, `CLAUDE.md`, and
+the docs they point to). When they give their own way to branch, rebase,
+check, push, review, label, or prepare a PR, follow theirs in place of the
+matching step here. The one exception is testing: "Testing permission" still
+replaces ask-first testing rules.
+
 ## Testing permission
 
 A "full stop" request is the permission. If a project file or other
