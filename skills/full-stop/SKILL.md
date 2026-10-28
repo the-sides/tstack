@@ -24,8 +24,8 @@ If they changed since this skill was written, they win.
 The user gives you permission to:
 
 - Commit to this task's `work/*` branch in its own worktree.
-- Rebase that branch onto the latest `origin/main` as often as this skill
-  says.
+- Bring that branch onto the latest `origin/main` as often as this skill
+  says, the way `modernize` does it.
 - Run the app, its dev servers, and a browser, and use the test methods that
   Proof needs, without asking first.
 
@@ -66,12 +66,18 @@ line), or anything under "Asking the user".
    that could. Keep each commit to one bucket (chassis or product) or give it a
    `cross-bucket: <reason>` trailer, and check with
    `scripts/check-bucket-separation.ts`. Put the release note in its own
-   `[apps/web/]changelog.d/<UTC date>-<topic>.md` file. Regenerate generated
-   artifacts in the same commit that moves them.
+   `[apps/web/]changelog.d/<UTC date>-<topic>.md` file. If you edit
+   `apps/web/DESIGN.md`, add one standalone change note,
+   `apps/web/design-changes/<YYYY-MM-DD>-<topic>.md`, in the same commit (CI
+   reds the PR without it). If the change rests on a business, legal, or trade
+   fact nobody on the team can confirm alone, add an entry to
+   `apps/web/docs/ASSUMPTIONS_TO_WITNESS.md` with the question, who can answer
+   it, and what the product does until then. Regenerate generated artifacts in
+   the same commit that moves them.
 3. **Prove it works.** See "Proof".
 4. **Get feedback.** Use the `sol-loop` skill to review the change. Do not let
    it push.
-5. **Bring it current.** Use the `modernize` skill on this branch. It rebases
+5. **Bring it current.** Use the `modernize` skill on this branch. It brings it
    onto the latest `origin/main`, runs `pnpm regen`, makes every commit green
    with its `check-commit` script, and runs `pnpm preflight` on the tip. See
    "Latest main, green commits".
@@ -107,17 +113,14 @@ change, ask the user.
 The finished branch must sit on the newest `origin/main` you can find by the
 end of the run, and every commit on it must pass its tests, not just the tip.
 
-This branch is not pushed, so rebasing it costs no CI run. The repo's "rebase
-only for a real conflict" rule is about pushed pull requests, and does not
-apply here.
-
 **Step 5.** Run `modernize` on the branch. It records its disposition, then:
 
-- rebases with `pnpm land:rebase`, then `pnpm regen`, amending each
-  regenerated file into the commit that owns it;
-- runs its `scripts/check-commit` on every commit with
-  `git rebase --reschedule-failed-exec --exec`. A red commit is fixed in that
-  commit, never by a later one;
+- brings the branch current. A branch that was never pushed is rebased with
+  `pnpm land:rebase`, which costs no CI run. A branch already on `origin` gets
+  `origin/main` merged into it instead, because rewriting a pushed `work/*`
+  branch reds CI's push-range check. Either way it runs `pnpm regen`;
+- runs its `scripts/check-commit` on every commit it can still amend. A red
+  commit is fixed in that commit, never by a later one;
 - runs `pnpm preflight` on the tip, plus `pnpm build && pnpm build:smoke` if
   the change touches the published package.
 
@@ -190,35 +193,40 @@ Write the pull request you would open, so the user can file it once they
 approve the visuals. Save it as `.local/full-stop/<topic>/pr.md`. Do not open
 it.
 
-PR titles become the merge commit's subject, so follow the conventions of
-recently merged PRs. Prefer a short, readable title that says why the change
-matters:
+Match the PRs that land in iota-spear:
 
-BAD
+**Title.** One line that says what changes for the person using it, with the
+area tag recent PRs use: `[WEB]`, `[CHASSIS]`, `[INFRA]`, `[CI]`,
+`[SECURITY]`, or a conventional `fix(web):` / `feat(payroll):`. Check the last
+few merged PRs for the current habit. For example:
 
-> ❌ perf(server): negotiate permessage-deflate on the websocket
+> ✅ [WEB] Take cost-rate journey dates from one clock read
+>
+> ✅ fix(bank-feed): date open AR/AP items by their own date (migration 0325)
+>
+> ❌ [WEB] Refactor lead-detail loaders and add helpers
 
-GOOD
+**Body,** in this order:
 
-> ✅ perf(server): cut websocket frame size by 70%+ with gzipping
+1. **Summary.** The problem in plain words first, from the user's request,
+   then what changes. Name who decided each product call ("decided by Jacob
+   Sides unless a line names someone else"). Never attribute a decision to
+   someone who did not make it. Say which bucket the commits are in, and where
+   the release notes and design notes are.
+2. **Verification.** What ran, on which commit: each commit's `check-commit`
+   result, preflight on the tip, PG suites, and the reproduction.
+3. **Screenshots.** Name the ones you recorded. The user attaches them when
+   filing.
+4. **What this does NOT prove.** No browser walk on a live company, suites not
+   run, and anything else left unchecked.
+5. **Decisions still open.** Each question, and whom it is for, pointing at its
+   `ASSUMPTIONS_TO_WITNESS.md` entry when there is one.
+6. **Follow-ups (not in this PR).**
 
-Open the description with a plain explanation of the problem, based on the
-user's original request, then briefly explain the fix. Do not lead with a
-list of everything you changed:
-
-BAD
-
-> ❌ Removed implicit workspace carry-over from every "new thread" entry point (cmd+n / cmd+shift+o, sidebar v1/v2 buttons, command palette). New threads inherit only the project from context; branch, worktree, and env mode always come from the configured defaults. Deleted buildContextualThreadOptions, startNewThreadInProjectFromContext, and the v1 sidebar's seed-context machinery.
-
-GOOD
-
-> ✅ My "new worktree" default was ignored when starting new threads on existing worktrees. Super unintuitive. Now your preferences always apply.
-
-Then add one short line that says how you proved the change, and end with
-`Created with <model> in <harness>.`, naming subagent models that wrote part of
-the change. Use the model name the harness reports. If it is not available,
-name the harness and do not guess. Check the draft for secrets, customer data,
-and private details.
+End with the harness's attribution line, for example
+`🤖 Generated with [Claude Code](https://claude.com/claude-code)`, or the
+equivalent for your harness. Check the draft for secrets, customer data, and
+private details.
 
 ## Handoff
 

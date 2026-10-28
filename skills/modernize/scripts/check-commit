@@ -5,6 +5,8 @@
 #   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" origin/main
 # A red commit stops the rebase on that commit: fix it there, `git commit --amend`,
 # then `git rebase --continue`, which runs this again.
+# On a branch already pushed, run it on each commit after the remote head instead:
+#   for c in $(git rev-list --reverse <remote head>..HEAD); do git checkout -q "$c" && bash check-commit || break; done
 #
 # Areas, from the commit's own diff:
 #   anything outside apps/  root `pnpm typecheck` + `pnpm test:unit`
