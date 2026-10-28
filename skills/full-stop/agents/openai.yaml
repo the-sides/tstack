@@ -1,4 +1,4 @@
 interface:
   display_name: "Full Stop"
-  short_description: "Prove, review, and prepare a PR without merging"
-  default_prompt: "Use $full-stop to make this PR ready for me to merge."
+  short_description: "Finish and prove an iota-spear change, then stop with a video and screenshots before any PR"
+  default_prompt: "Use $full-stop to finish this and show me a video and screenshots before you open a PR."
