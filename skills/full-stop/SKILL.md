@@ -53,11 +53,14 @@ line), or anything under "Asking the user".
 
 ## Steps
 
-1. **Start clean.** `git fetch origin`, then work in a worktree, never in the
-   root checkout. For new work run `pnpm worktree:new <topic>`, which creates
-   `../iota-spear-<topic>` on `work/<topic>`. For an existing branch or pull
-   request, use a worktree on its branch, and read its head's red CI jobs
-   first: they are work the lane still carries.
+1. **Confirm you're in a worktree.** The user's work has already started in
+   one. Check that the current directory is a linked worktree, not the root
+   checkout: `git rev-parse --git-dir` and `git rev-parse --git-common-dir`
+   differ in a linked worktree. Work there, on its branch, and build on its
+   commits and uncommitted changes. Do not create another worktree. If you are
+   in the root checkout, ask the user which worktree to use. Then
+   `git fetch origin`. If the branch has a PR, read its head's red CI jobs:
+   they are work the lane still carries.
 2. **Finish the change.** Complete the goal from the user's request with the
    smallest change that works. Fix the case that happened, not every case
    that could. Keep each commit to one bucket (chassis or product) or give it a
