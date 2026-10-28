@@ -1,19 +1,19 @@
 # tstack
 
-My agent skills. They work in Claude Code and Codex. Some use
-[T3 Code](https://github.com/pingdotgg/t3code) features when they are
-available and fall back to native tools when they are not.
-
-None of these skills merge a PR. They stop when the PR is ready, and you merge
-it.
+My agent skills for [iota-spear](https://github.com/Lamp-Post-Group/iota-spear).
+They follow its `AGENTS.md` and `docs/LANDING.md`: agents push as
+`iota-spear-agent[bot]`, rebase only for real conflicts, run `pnpm preflight`
+before pushing, and never approve or merge. A human merges. They work in Claude
+Code and Codex, and use [T3 Code](https://github.com/pingdotgg/t3code) features
+when they are available.
 
 ## Skills
 
 | Skill | Say | What it does |
 |---|---|---|
-| `full-stop` | "full stop" | Takes a change to an open PR with nobody watching: proves it, reviews it, files it, babysits it, and stops when it is ready for you to merge. |
+| `full-stop` | "full stop" | Takes an iota-spear change to an open PR with nobody watching: proves it, reviews it, runs preflight, files it, babysits it, and hands the owner the `land:merge` line. |
 | `sol-loop` | "sol loop" | Reviews a change with GPT Sol in a loop until both agents agree. |
-| `modernize` | "modernize" | Rebases an old PR and decides if it should still exist. |
+| `modernize` | "modernize" | Brings an old iota-spear PR current with `land:rebase` and `regen`, and decides if it should still exist. |
 
 `full-stop` uses `sol-loop`. Install both.
 

@@ -1,32 +1,38 @@
 ---
 name: modernize
 description: >-
-  For getting old prs up to date. Use when asked to rebase a pr or
+  For getting old iota-spear PRs up to date. Use when asked to rebase a PR or
   "modernize".
 ---
 
 # Modernize
 
-Modernize the idea, not just the branch. A clean rebase does not prove that the
-PR still belongs in the product.
+For iota-spear (`Lamp-Post-Group/iota-spear`). Modernize the idea, not just the
+branch. A clean rebase does not prove that the PR still belongs in the product.
+
+The rules this skill follows live in the repo's `AGENTS.md` and
+`docs/LANDING.md`. If they changed since this skill was written, they win.
 
 ## Guardrails
 
-- Always check to make sure you have pulled latest origin for your branch, main
-  branch, and any other branch related to your work before starting.
-- Treat existing worktree changes as user-owned. Use a disposable worktree when
-  the active worktree is dirty or is being used for other work.
-- Read the repo's agent docs (`AGENTS.md`, `CLAUDE.md`, and the docs they
-  point to) first. When they give their own rebase, regeneration, check, or
-  push procedure, follow theirs in place of the matching step here.
-- Modernizing authorizes rebasing and updating the PR branch. It does not
-  authorize merging, closing, changing the base branch, or expanding scope.
-- Never use an unqualified force push. Update a rebased branch with
-  `--force-with-lease` against the head SHA observed before the rebase.
+- `git fetch origin` before anything, then read `git log -1 origin/main`. Bare
+  `main` only moves on fetch, so it can look current while stale.
+- Work in a worktree, never in the root checkout, and never in a worktree
+  another session uses. Treat existing worktree changes as someone else's.
+  `pnpm land:board -- <n>` shows in its `held` column whether a worktree already
+  has the PR's branch checked out.
+- You act on GitHub as the `iota-spear-agent[bot]` App. In Codex or another
+  shell, run `eval "$(bash .claude/hooks/agent-identity.sh env)"` first.
+- Modernizing authorizes rebasing and updating the PR's `work/*` branch. It does
+  not authorize approving, merging, closing, changing the base branch, or
+  expanding scope.
+- Never use an unqualified force push or `git push --no-verify`. Update a
+  rebased branch with `--force-with-lease` against the head SHA you saw before
+  the rebase.
 - Do not post a PR comment unless the user asked for one. Start every comment
-  posted on the user's behalf with this callout, using the verified public
-  model name (or the harness name if it is not exposed) and the user's name
-  or GitHub login:
+  you post with this callout, using the verified public model name (or the
+  harness name if it is not exposed) and the name of the person who started
+  the session:
 
   ```md
   > [!NOTE]
@@ -35,28 +41,37 @@ PR still belongs in the product.
   Actual comment starts here.
   ```
 
+- Never apply the `cleared` or `held` labels.
+
 ## Establish the PR's intent
 
-Resolve the PR and record its URL, state, base, head repository and branch,
-current head SHA, author, checks, and review state. Read the title, body, linked
-issues, commits, review threads, and complete diff. State the smallest coherent
-goal the PR was trying to accomplish before judging its implementation.
+Resolve the PR and record its URL, state, base, head branch, current head SHA,
+author, `status:` label, checks, and review state. Read the head's red CI jobs:
+they are work the lane still carries. Read the title, body, linked issues,
+commits, review threads, and complete diff. State the smallest coherent goal
+the PR was trying to accomplish before judging its implementation.
 
-Fetch the latest remote base and PR head. Use the PR's actual base branch,
-usually `main`, rather than assuming the local branch is current. Record the
-merge base so the original PR and subsequent base-branch changes can be
-compared separately.
+Record the merge base with `origin/main` (or the PR's actual base, for a
+stacked PR), so the original PR and later `main` changes can be compared
+separately.
 
 ## Check what changed around it
 
-Inspect commits and diffs added to the base branch since the PR diverged. Search
-merged and open PRs when titles, code paths, or behavior suggest a replacement
-or competing implementation.
+Inspect commits on `main` since the PR diverged. Search merged and open PRs
+when titles, code paths, or behavior suggest a replacement or competing
+implementation. Read `CHANGELOG.md`, `changelog.d/`, and `docs/DEFERRED.md` for
+landed work and open bets in the same area.
+
+Check by content, not ancestry: cherry-picks and PR replays rewrite hashes, so
+`origin/main..<branch>` can list commits that already landed. `git cherry`
+marks a commit that already has an equivalent upstream with `-`, and it fails
+open, so confirm with `git diff origin/main <head> -- <touched paths>`.
 
 Look beyond overlapping lines:
 
 - Has the same user-facing problem already been solved?
-- Did APIs, types, schemas, dependencies, or architectural boundaries change?
+- Did APIs, types, schemas, manifests, or architectural boundaries change? Did
+  a doctrine or ADR land that this PR now breaks?
 - Do both sides now claim ownership of the same behavior or invariant?
 - Was the code being changed deleted, moved, or intentionally simplified?
 - Would landing the PR restore an old behavior or create two ways to do the
@@ -70,7 +85,7 @@ Do not describe a PR as current merely because Git reports no conflicts.
 Use one of these recommendations:
 
 - **MODERNIZE**: the goal is still useful and the implementation remains the
-  right shape. Rebase, resolve conflicts, test, and update the branch.
+  right shape. Bring it current (below), test, and update the branch.
 - **REWORK**: the goal is still useful, but a mechanical rebase would preserve
   the wrong implementation. Explain the smallest credible rewrite and stop
   before pushing unless the user also asked for that rework.
@@ -81,20 +96,28 @@ Use one of these recommendations:
 Be willing to recommend `CLOSE`. Age alone is not evidence, and sunk effort is
 not a reason to keep a PR alive.
 
-## Rebase without losing intent
+## Bring it current without losing intent
 
 For a `MODERNIZE` disposition:
 
-1. Create a safe local branch or disposable worktree at the recorded PR head.
-2. Rebase its commits onto the freshly fetched base branch.
-3. Resolve each conflict according to the PR's current intent and the base
-   branch's newer invariants. If a conflict reveals a product or architecture
-   disagreement, stop and reconsider the disposition instead of guessing.
-4. Compare the pre-rebase and post-rebase commit series with `git range-diff`
-   and inspect the final diff. Confirm that no intentional behavior disappeared
-   and no already-landed behavior was reintroduced.
-5. Run the repository's focused checks for the touched area. Distinguish real
-   failures from pre-existing or infrastructure failures.
+1. Run `pnpm land:board -- <n>`. A move of `main` alone is not a reason to
+   rebase. If its `merge` column is clean and the user did not ask for a
+   rebase, skip to step 5: the branch needs checks, not a new base.
+2. In a worktree on the PR's branch, run `pnpm land:rebase` (or
+   `pnpm land:rebase -- <base>` for a stacked PR). It rebuilds the generated
+   ledger at each commit. It stops on real conflicts as usual.
+3. Resolve each conflict by the PR's current intent and `main`'s newer
+   invariants. After editing, stage with `git add --resolved` and review the
+   staged diff. If a conflict reveals a product or architecture disagreement,
+   stop and reconsider the disposition instead of guessing.
+4. Run `pnpm regen` (it must follow every rebase) and amend each regenerated
+   file into the commit that owns it. Never leave a red commit for a separate
+   regen commit. Compare the pre-rebase and post-rebase series with
+   `git range-diff` and inspect the final diff. Confirm no intended behavior
+   disappeared and no already-landed behavior came back.
+5. Run `pnpm preflight` once and fix every red. If the PR touches the published
+   package, also run `pnpm build && pnpm build:smoke`. Tell real failures apart
+   from runner or infrastructure flakes, and from reds already on `main`.
 6. Push with `--force-with-lease` tied to the previously observed remote head.
    If the lease fails, fetch and reassess rather than overwriting new work.
 
@@ -104,10 +127,10 @@ Do not merge the PR.
 
 Lead with `MODERNIZE`, `REWORK`, or `CLOSE` and the reason. Then summarize:
 
-- meaningful changes on the base branch;
+- meaningful changes on `main`;
 - conceptual conflicts or confirmation that none were found;
-- the rebase and push result, if performed;
-- checks run and their results;
+- the rebase and push result, if performed, and the new head SHA;
+- checks run and their results, and what they do not prove;
 - the remaining decision or work, with a link to the PR.
 
 Separate observed facts from judgment. Say what could not be verified instead
