@@ -122,18 +122,22 @@ head SHA if it is. The user needs it to push safely.
    Compare the old and new series with `git range-diff` and inspect the final
    diff against `origin/main`: no intended behavior disappeared and no
    already-landed behavior came back.
-4. **Make every commit green.** Run `scripts/check-commit` from this skill's
-   directory (use its absolute path) on every commit of the branch:
+4. **Make every commit green.** Skip this step only when `full-stop` asks
+   you to: it runs the same check once, at the end. First record the base the
+   branch now sits on, `base=$(git merge-base HEAD origin/main)`. Every
+   worktree shares `origin/main`, and another session's fetch can move it
+   between steps. Then run `scripts/check-commit` from this skill's directory
+   (use its absolute path) on every commit, against that SHA:
 
    ```bash
-   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" origin/main
+   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" "$base"
    ```
 
    It typechecks and runs the unit tests for each area the commit touches
    (root, `apps/web`, `apps/qa`). When a commit fails, the rebase stops on it.
    Fix it in that commit, `git commit --amend`, and `git rebase --continue`.
-   Never fix a red commit with a later commit. Use `<base>` in place of
-   `origin/main` for a stacked branch. Record each commit's result. Do not
+   Never fix a red commit with a later commit. For a stacked branch, take the
+   merge-base with its base branch instead. Record each commit's result. Do not
    leave the worktree mid-rebase: finish or `git rebase --abort` before you
    report.
 5. Run `pnpm preflight` once and fix every red. If the branch touches the

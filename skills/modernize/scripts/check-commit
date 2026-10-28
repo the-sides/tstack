@@ -2,7 +2,7 @@
 # Typecheck and unit-test one iota-spear commit, for the areas it touches.
 #
 # Run it on every commit of a branch with:
-#   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" origin/main
+#   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" "$(git merge-base HEAD origin/main)"
 # A red commit stops the rebase on that commit: fix it there, `git commit --amend`,
 # then `git rebase --continue`, which runs this again.
 #

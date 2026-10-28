@@ -78,17 +78,17 @@ line), or anything under "Asking the user".
 3. **Prove it works.** See "Proof".
 4. **Get feedback.** Use the `sol-loop` skill to review the change. Do not let
    it push.
-5. **Bring it current.** Use the `modernize` skill on this branch. It brings it
-   onto the latest `origin/main`, runs `pnpm regen`, makes every commit green
-   with its `check-commit` script, and runs `pnpm preflight` on the tip. See
-   "Latest main, green commits".
+5. **Bring it current.** Use the `modernize` skill on this branch to rebase it
+   onto the latest `origin/main` and run preflight on the tip, without its
+   every-commit check. See "Latest main, green commits".
 6. **Show it.** Record the video and screenshots on the final commit. See
    "Show it".
 7. **Check main one last time.** See "Latest main, green commits".
-8. **Draft the PR, but do not open it.** See "PR draft".
-9. **Hand off** with the report in "Handoff".
+8. **Check every commit, once.** See "Latest main, green commits".
+9. **Draft the PR, but do not open it.** See "PR draft".
+10. **Hand off** with the report in "Handoff".
 
-Stay active from step 1 to step 9. If you end your turn early, the work stops,
+Stay active from step 1 to step 10. If you end your turn early, the work stops,
 because nobody will prompt you again.
 
 ## Proof
@@ -114,12 +114,14 @@ change, ask the user.
 The finished branch must sit on the newest `origin/main` you can find by the
 end of the run, and every commit on it must pass its tests, not just the tip.
 
-**Step 5.** Run `modernize` on the branch. It records its disposition, then:
+Every rebase rewrites every commit, so testing each commit is done once, at
+the end, on the final base. Until then, only the tip is tested.
+
+**Step 5.** Run `modernize` on the branch, and tell it to skip its
+every-commit check (its step 4). It records its disposition, then:
 
 - rebases the branch onto `origin/main` with `pnpm land:rebase`, never by
   merging `main` in, and runs `pnpm regen`;
-- runs its `scripts/check-commit` on every commit. A red commit is fixed in
-  that commit, never by a later one;
 - runs `pnpm preflight` on the tip, plus `pnpm build && pnpm build:smoke` if
   the change touches the published package.
 
@@ -127,7 +129,7 @@ If `modernize` says `REWORK` or `CLOSE` (for example, `main` already solved the
 problem), stop and ask the user instead of recording.
 
 **Step 7.** After recording, `git fetch origin` again. If `origin/main` is
-still an ancestor of `HEAD`, you are done. If it moved:
+still an ancestor of `HEAD`, go on to step 8. If it moved:
 
 1. Run step 5 again.
 2. Retake the recordings when the new `main` commits touch `apps/`, or any
@@ -135,15 +137,32 @@ still an ancestor of `HEAD`, you are done. If it moved:
    base they were recorded on.
 3. Check again.
 
-Stop after two extra rounds. If `main` is still moving, hand off on the last
-base you finished, and say how many commits behind it is.
+Stop after two extra rounds. If `main` is still moving, go on with the last
+base you finished, and say in the handoff how many commits behind it is.
+
+**Step 8.** Do not fetch again. Record the base the branch now sits on,
+`base=$(git merge-base HEAD origin/main)`, before anything else runs: every
+worktree shares `origin/main`, and another session's fetch can move it. Then
+run `modernize`'s `scripts/check-commit` (use its absolute path) on every
+commit, against that SHA:
+
+```bash
+git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" "$base"
+```
+
+The commits sit on `$base` already, so this replays them in place and only
+runs the checks. When a commit fails, the rebase stops on it: fix it in that
+commit, `git commit --amend`, and `git rebase --continue`. Never fix a red
+commit with a later commit, and never leave the worktree mid-rebase. If any
+commit changed, run `pnpm preflight` on the tip again, and retake any
+recording whose screen the fix touched.
 
 ## Show it
 
 The user will decide from what you record whether the change looks right, so
 record what they would have clicked through themselves. Record on the final
 commit, after step 5. A recording of an earlier commit does not count, except
-as step 7 allows.
+as steps 7 and 8 allow.
 
 **Where it goes.** Save everything under the worktree's
 `.local/full-stop/<topic>/` (gitignored). Name files so they sort in viewing
