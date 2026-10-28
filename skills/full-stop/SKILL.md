@@ -19,16 +19,6 @@ The user gives you permission to:
 - Force-push this task's branch with `--force-with-lease` after a rebase.
 - Use the test methods that Proof needs, without asking first.
 
-## No merging
-
-Never merge, enable auto-merge, enter a merge queue, push to the default
-branch, bypass branch protection, or delegate any of those actions.
-
-Before work begins, turn off any existing auto-merge and take the PR out of
-any merge queue. Check again before each push. Report these changes. If you
-cannot stop the PR from merging on its own, report the blocker before you
-continue.
-
 ## Testing permission
 
 A "full stop" request is the permission. If a project file or other
@@ -53,7 +43,9 @@ It also does not bypass a harness or system approval prompt if one appears.
 
 1. **Finish the change.** Complete the goal from the user's request with the
    smallest change that works. Fix the case that happened, not every case
-   that could. If you are on the default branch, create a branch first.
+   that could. If you are on the default branch, create a branch first. If
+   the PR already exists, turn off auto-merge and take it out of any merge
+   queue so it cannot merge on its own.
 2. **Prove it.** Get proof for every change you made. See "Proof".
 3. **Get feedback.** Use the `sol-loop` skill to verify the change.
 4. **File the PR.** Rebase onto the latest default branch first. See "Filing
