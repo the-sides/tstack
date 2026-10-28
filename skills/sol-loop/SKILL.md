@@ -38,6 +38,10 @@ Find the base after `git fetch origin`:
 - Local: `git merge-base HEAD origin/main`. For uncommitted changes only:
   `HEAD`.
 
+Do not merge `main` into the branch or rebase it during the loop; review
+against that merge-base. Bringing a branch current is `modernize`'s job, and
+it rebases, never merges.
+
 The change is base to working tree in those paths, with untracked files.
 Use one diff command all rounds. State intent and out-of-scope in 1-2
 sentences. Run covering checks: the narrow ones for what changed (`pnpm test <file>`,

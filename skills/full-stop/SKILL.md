@@ -57,7 +57,8 @@ line), or anything under "Asking the user".
    one. Check that the current directory is a linked worktree, not the root
    checkout: `git rev-parse --git-dir` and `git rev-parse --git-common-dir`
    differ in a linked worktree. Work there, on its branch, and build on its
-   commits and uncommitted changes. Do not create another worktree. If you are
+   commits and uncommitted changes. Do not create another worktree for the
+   change (the only exception is "Before shots", below). If you are
    in the root checkout, ask the user which worktree to use. Then
    `git fetch origin`. If the branch has a PR, read its head's red CI jobs:
    they are work the lane still carries.
@@ -115,12 +116,10 @@ end of the run, and every commit on it must pass its tests, not just the tip.
 
 **Step 5.** Run `modernize` on the branch. It records its disposition, then:
 
-- brings the branch current. A branch that was never pushed is rebased with
-  `pnpm land:rebase`, which costs no CI run. A branch already on `origin` gets
-  `origin/main` merged into it instead, because rewriting a pushed `work/*`
-  branch reds CI's push-range check. Either way it runs `pnpm regen`;
-- runs its `scripts/check-commit` on every commit it can still amend. A red
-  commit is fixed in that commit, never by a later one;
+- rebases the branch onto `origin/main` with `pnpm land:rebase`, never by
+  merging `main` in, and runs `pnpm regen`;
+- runs its `scripts/check-commit` on every commit. A red commit is fixed in
+  that commit, never by a later one;
 - runs `pnpm preflight` on the tip, plus `pnpm build && pnpm build:smoke` if
   the change touches the published package.
 
@@ -162,17 +161,28 @@ were the change.
 **Video,** for anything with motion, a flow across several screens, or an
 interaction (open, drag, submit, undo). Use the harness's own browser
 recording when it has one (in T3 Code, `preview_recording_start` and
-`preview_recording_stop`). Otherwise write a short Playwright script outside
-the repo and run it with the worktree's own Playwright
-(`apps/web/node_modules/.bin/playwright` or `pnpm -C apps/web exec node
-<script>`), with `browser.newContext({ recordVideo: { dir, size } })`. Keep each
-video to one flow, under about a minute, at a pace a person can follow. Pause
-on each state for a second.
+`preview_recording_stop`). Otherwise write a short Playwright script in the
+evidence folder and run it with plain `node`. Load Playwright through
+`apps/web`, because a script finds packages from its own location and the
+repo root has no Playwright:
+
+```js
+import { createRequire } from 'node:module';
+const { chromium } = createRequire('<worktree>/apps/web/package.json')('playwright');
+const browser = await chromium.launch();
+const context = await browser.newContext({ recordVideo: { dir: '<evidence folder>', size: { width: 1440, height: 900 } } });
+// ... drive the page ...
+await context.close(); // the video is written on close
+await browser.close();
+```
+
+Keep each video to one flow, under about a minute, at a pace a person can
+follow. Pause on each state for a second.
 
 **Screenshots,** for every screen the change touches:
 
 - Before and after, from `origin/main` and from the branch, at the same URL,
-  size, and data, so they can be compared side by side.
+  size, and data, so they can be compared side by side. See "Before shots".
 - Each state the change can show: loading, empty, error, denied, and stale,
   plus the opened or expanded state when something is folded away at first
   load.
@@ -182,6 +192,30 @@ on each state for a second.
 Look at every image yourself before you hand it over. If one shows the wrong
 thing, a spinner, a dev overlay, or an error you did not mean to capture,
 retake it.
+
+**Before shots.** Take them from the primary checkout, the parent of
+`git rev-parse --git-common-dir`. It is supposed to stay on `main`.
+
+1. If it has `main` checked out and `git status --short` there is empty, bring
+   it to the latest `main` with `git pull --ff-only origin main` and
+   `pnpm install --frozen-lockfile`, and run the app from it. Commit and edit
+   nothing there. When you are done, stop only the server you started, by its
+   own process id or the harness's stop, never by pattern.
+2. If it has another branch checked out, or uncommitted changes, leave it
+   alone. Use a worktree on `origin/main` instead:
+   `git worktree add --detach ../iota-spear-main-before origin/main`, then
+   `pnpm worktree:finish ../iota-spear-main-before`. If that worktree already
+   exists, reuse it: check out `origin/main` there, detached, and reinstall.
+3. The lanes behave as anywhere, with one difference. From the primary,
+   Process Twin is the `process-twin` lane: the primary's own desk
+   (`spear_process_twin_dev`, port 3217), whose launcher drops and recreates
+   its database from seed. Use it only when nothing is listening on 3217. From
+   the `main-before` worktree, use `process-twin-worktree`.
+4. If something behaves oddly there (a port already taken, unexpected data,
+   files changing under you), stop and confirm nothing else is using the
+   primary: check `lsof -nP -iTCP:<port> -sTCP:LISTEN`, and in T3 Code the
+   thread list for another thread working in the primary checkout. If
+   something is, switch to the `main-before` worktree.
 
 **Changes with nothing to see** (a script, a kernel primitive, a migration):
 record the terminal instead. Save the reproduction before and after, and the
@@ -238,7 +272,9 @@ Then report:
 
 - The worktree path, branch, final commit SHA, and the `origin/main` SHA it
   sits on, with the time you last fetched. State that nothing was pushed and
-  no PR exists.
+  no PR exists, and give the push command `modernize` reported. A branch
+  already on `origin` was rebased, so it needs the `--force-with-lease`
+  command pinned to its old remote head.
 - Each commit with its `check-commit` result, and the preflight result on the
   tip.
 - A try-it recipe: the launch lane, the URL, and the clicks that reach the

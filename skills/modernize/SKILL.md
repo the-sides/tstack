@@ -2,8 +2,9 @@
 name: modernize
 description: >-
   For getting old iota-spear PRs and branches up to date with the latest
-  main, with every commit green. Use when asked to rebase or update a PR or
-  branch, or "modernize". full-stop uses it to finish on the latest main.
+  main by rebasing, with every commit green. Commits, never pushes. Use when
+  asked to rebase or update a PR or branch, or "modernize". full-stop uses it
+  to finish on the latest main.
 ---
 
 # Modernize
@@ -25,25 +26,19 @@ The rules this skill follows live in the repo's `AGENTS.md` and
   another worktree. If you are in the root checkout, ask the user which
   worktree to use.
 - Never stash or discard uncommitted changes in it. If there are any, ask the
-  user before bringing the branch current. (`full-stop` commits its work before it calls you.)
-- You act on GitHub as the `iota-spear-agent[bot]` App. In Codex or another
-  shell, run `eval "$(bash .claude/hooks/agent-identity.sh env)"` first.
-- Modernizing authorizes bringing the branch current and pushing its `work/*`
-  branch. It does not authorize approving, merging the PR, closing,
-  changing the base branch, or expanding scope.
-- **Never rewrite a branch that is already on `origin`.** CI prices each push
-  range, and a force-push over a rebased `work/*` ref reds
-  `push-range-unresolvable`. A pushed branch is brought current by merging
-  `main` into it and pushing plain, as a fast-forward. Only a branch that was
-  never pushed is rebased. Never use `git push --no-verify`.
+  user before rebasing. (`full-stop` commits its work before it calls you.)
+- Modernizing authorizes rebasing the branch onto the latest `origin/main` and
+  committing in it. It does not authorize pushing, approving, merging,
+  closing, commenting, changing the base branch, or expanding scope. The user
+  pushes.
+- **Rebase, never merge.** Bring the branch current with `pnpm land:rebase`,
+  never by merging `main` into it. This holds for a branch already on `origin`
+  too: CI prices a force-push over a rebase by the branch's own commits
+  (`scripts/check-bucket-separation.ts`, "FORCE-PUSH FALLBACK"), so it does not
+  go red for being rewritten.
 - **Hands off a PR someone else holds.** If it carries `wip: <name>` for
   someone other than the user, `walk-in-progress`, `in-code-review`, or `held`,
-  do not push. Report and ask.
-- Do not post a PR comment unless the user asked for one. The App posts it,
-  so add no signature or attribution callout. Lead with the conclusion, name
-  the exact SHAs (for example "Published at `<sha>` by fast-forward from
-  `<sha>`"), cite the check or code, and keep it short.
-- Never apply the `cleared` or `held` labels.
+  do not rewrite it. Report and ask.
 
 ## Establish the PR's intent
 
@@ -86,7 +81,7 @@ Look beyond overlapping lines:
 
 Do not describe a PR as current merely because Git reports no conflicts.
 
-## Choose a disposition before pushing
+## Choose a disposition before rebasing
 
 Use one of these recommendations:
 
@@ -94,7 +89,7 @@ Use one of these recommendations:
   right shape. Bring it current (below), test, and update the branch.
 - **REWORK**: the goal is still useful, but bringing it current as-is would preserve
   the wrong implementation. Explain the smallest credible rewrite and stop
-  before pushing unless the user also asked for that rework.
+  before rebasing unless the user also asked for that rework.
 - **CLOSE**: the PR is superseded, obsolete, directionally wrong, or no longer
   worth its cost. Cite concrete evidence and stop. Do not spend time updating an
   obsolete branch, and do not close it without explicit permission.
@@ -105,55 +100,52 @@ not a reason to keep a PR alive.
 ## Bring it current without losing intent
 
 For a `MODERNIZE` disposition, first check whether the branch is on
-`origin`: `git ls-remote --heads origin <branch>`. Record its remote head SHA if
-it is. That decides how it is brought current.
+`origin` with `git ls-remote --heads origin <branch>`, and record its remote
+head SHA if it is. The user needs it to push safely.
 
 1. **Decide whether it needs a new base.** A move of `main` alone is not a
-   reason. If preflight's `github-merge` step would merge it cleanly and
+   reason. Run the merge check on its own, not the whole preflight:
+   `node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/check-github-merge.ts`
+   (add `--base <branch>` for a stacked branch). If it merges cleanly and
    nobody asked, skip to step 4: the branch needs checks, not a new base. A
-   request from the user, or a call from `full-stop`, always brings it onto the
+   request from the user, or a call from `full-stop`, always rebases onto the
    latest `origin/main`.
-2. **Bring it current.**
-   - *Pushed branch:* `git merge --no-ff origin/main` (or the PR's base, for a
-     stacked PR). Resolve each conflict, then `git add --resolved` and review
-     the staged diff. Run `pnpm regen` and amend what it writes into the merge
-     commit. The merge commit's message names the `main` SHA it took and how
-     each meaningful conflict was resolved.
-   - *Never-pushed branch:* `pnpm land:rebase` (or
-     `pnpm land:rebase -- <base>`). It rebuilds the generated ledger at each
-     commit and stops on real conflicts. Resolve them, then run `pnpm regen`
-     and amend each regenerated file into the commit that owns it. Compare
-     the old and new series with `git range-diff`.
+2. **Rebase.** Run `pnpm land:rebase` (or `pnpm land:rebase -- <base>` for a
+   stacked branch). It rebuilds the generated ledger at each commit and stops
+   on real conflicts. Resolve each by the branch's current intent and
+   `main`'s newer invariants, stage with `git add --resolved`, review the
+   staged diff, and `git rebase --continue`. If a conflict reveals a product
+   or architecture disagreement, `git rebase --abort` and reconsider the
+   disposition instead of guessing.
+3. **Regenerate.** Run `pnpm regen` and amend each regenerated file into the
+   commit that owns it. Never leave a red commit for a separate regen commit.
+   Compare the old and new series with `git range-diff` and inspect the final
+   diff against `origin/main`: no intended behavior disappeared and no
+   already-landed behavior came back.
+4. **Make every commit green.** Run `scripts/check-commit` from this skill's
+   directory (use its absolute path) on every commit of the branch:
 
-   Either way, resolve conflicts by the branch's current intent and `main`'s
-   newer invariants. If a conflict reveals a product or architecture
-   disagreement, stop and reconsider the disposition instead of guessing.
-   Inspect the final diff against `origin/main`: no intended behavior
-   disappeared and no already-landed behavior came back.
-3. **Make every new commit green.** Run `scripts/check-commit` from this
-   skill's directory (use its absolute path). It typechecks and runs the unit
-   tests for each area the commit touches (root, `apps/web`, `apps/qa`).
-   - *Never-pushed branch:* every commit, with
-     `git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" origin/main`.
-     When a commit fails, the rebase stops on it. Fix it in that commit,
-     `git commit --amend`, and `git rebase --continue`.
-   - *Pushed branch:* every commit after the remote head, including the merge
-     commit. Check each out in turn (`git rev-list --reverse <remote head>..HEAD`)
-     and run the script, then return to the branch. Fix a red unpushed commit in
-     place, before anything is pushed. Commits already on `origin` cannot be
-     rewritten. If one of those is red, say so in the report.
+   ```bash
+   git rebase --reschedule-failed-exec --exec "bash <abs path>/check-commit" origin/main
+   ```
 
-   Never fix a red commit with a later commit while it can still be amended.
-   Record each commit's result.
-4. Run `pnpm preflight` once and fix every red. If the branch touches the
+   It typechecks and runs the unit tests for each area the commit touches
+   (root, `apps/web`, `apps/qa`). When a commit fails, the rebase stops on it.
+   Fix it in that commit, `git commit --amend`, and `git rebase --continue`.
+   Never fix a red commit with a later commit. Use `<base>` in place of
+   `origin/main` for a stacked branch. Record each commit's result. Do not
+   leave the worktree mid-rebase: finish or `git rebase --abort` before you
+   report.
+5. Run `pnpm preflight` once and fix every red. If the branch touches the
    published package, also run `pnpm build && pnpm build:smoke`. Tell real
    failures apart from runner or infrastructure flakes, and from reds already
-   on `main`. Preflight runs on the tip only. It covers the database suites and
-   the GitHub-style merge that step 3 does not.
-5. **Push,** only when the branch already has a PR: `git push origin HEAD`, a
-   plain fast-forward. If it is refused as non-fast-forward, someone pushed:
-   fetch and reassess rather than overwriting their work. A branch
-   `full-stop` is building is never pushed.
+   on `main`. Preflight runs on the tip only. It covers the database suites
+   and GitHub's merge, which step 4 does not.
+6. **Do not push.** Hand the user the command. For a branch already on
+   `origin`, pin the lease to the remote head you recorded, so the push fails
+   instead of overwriting anything pushed since:
+   `git push --force-with-lease=<branch>:<remote head sha> origin <branch>`.
+   For a branch never pushed: `git push -u origin <branch>`.
 
 Do not merge the PR.
 
@@ -163,8 +155,8 @@ Lead with `MODERNIZE`, `REWORK`, or `CLOSE` and the reason. Then summarize:
 
 - meaningful changes on `main`;
 - conceptual conflicts or confirmation that none were found;
-- whether it was merged or rebased, the push result if performed, and the new
-  head SHA;
+- the rebase result, the new head SHA, and the exact push command for the
+  user;
 - the `origin/main` SHA the branch now sits on;
 - each commit's check result, the preflight result, and what they do not
   prove;
